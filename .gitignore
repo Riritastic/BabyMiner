@@ -12,6 +12,12 @@
 *.env
 *.csv
 
+## .venv environment files and pycache
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
