@@ -86,31 +86,47 @@ class DatasetProcessor:
         repo_parquet_path = output_dir / "repositories.parquet"
         wf_parquet_path = output_dir / "workflows.parquet"
         body_parquet_path = output_dir / "workflow_bodies.parquet"
+        processed_log_path = output_dir / "processed_repos.json"
 
         processed_repo_names = set()
         repos_list = []
         workflows_list = []
         bodies_list = []
 
-        # 1. CARGAR AVANCE PREVIO (SI EXISTE)
-        if (
-            repo_parquet_path.exists()
-            and wf_parquet_path.exists()
-            and body_parquet_path.exists()
-        ):
-            print(
-                " Se encontró un avance previo en Parquet. Cargando datos..."
-            )
-            df_existing_repos = pd.read_parquet(repo_parquet_path)
-            df_existing_wfs = pd.read_parquet(wf_parquet_path)
-            df_existing_bodies = pd.read_parquet(body_parquet_path)
+        # 1. CARGAR REGISTRO DE REPOS PROCESADOS (SI EXISTE)
+        if processed_log_path.exists():
+            try:
+                with open(processed_log_path, "r", encoding="utf-8") as f:
+                    processed_repo_names = set(json.load(f))
+            except Exception:
+                processed_repo_names = set()
 
-            processed_repo_names = set(df_existing_repos["full_name"].tolist())
-            repos_list = df_existing_repos.to_dict(orient="records")
-            workflows_list = df_existing_wfs.to_dict(orient="records")
-            bodies_list = df_existing_bodies.to_dict(orient="records")
+        # 2. CARGAR AVANCES EN PARQUET SI EXISTEN
+        if repo_parquet_path.exists():
+            try:
+                df_existing = pd.read_parquet(repo_parquet_path)
+                if not df_existing.empty and "full_name" in df_existing.columns:
+                    repos_list = df_existing.to_dict(orient="records")
+            except Exception:
+                repos_list = []
 
-        # 2. LEER CSV DE ENTRADA Y FILTRAR PENDIENTES
+        if wf_parquet_path.exists():
+            try:
+                df_existing = pd.read_parquet(wf_parquet_path)
+                if not df_existing.empty:
+                    workflows_list = df_existing.to_dict(orient="records")
+            except Exception:
+                workflows_list = []
+
+        if body_parquet_path.exists():
+            try:
+                df_existing = pd.read_parquet(body_parquet_path)
+                if not df_existing.empty:
+                    bodies_list = df_existing.to_dict(orient="records")
+            except Exception:
+                bodies_list = []
+
+        # 3. LEER CSV DE ENTRADA Y FILTRAR PENDIENTES
         df_input = pd.read_csv(input_csv)
         all_candidate_repos = (
             df_input[self.repo_column].dropna().unique().tolist()
@@ -125,7 +141,7 @@ class DatasetProcessor:
             f"Pendientes: {len(pending_repos)}"
         )
 
-        # 3. PROCESAMIENTO EN BLOQUES (BATCHES) CON HILOS CONCURRENTES
+        # 4. PROCESAMIENTO EN BATCHES
         for i in range(0, len(pending_repos), batch_size):
             batch_repos = pending_repos[i : i + batch_size]
 
@@ -146,21 +162,28 @@ class DatasetProcessor:
                         workflows_list.extend(wf_dicts)
                         bodies_list.extend(body_dicts)
 
-            # GUARDADO INCREMENTAL AL COMPLETAR CADA LOTE
-            pd.DataFrame(repos_list).to_parquet(
-                repo_parquet_path, index=False, engine="pyarrow"
-            )
-            pd.DataFrame(workflows_list).to_parquet(
-                wf_parquet_path, index=False, engine="pyarrow"
-            )
-            pd.DataFrame(bodies_list).to_parquet(
-                body_parquet_path, index=False, engine="pyarrow"
-            )
+            # GUARDAR AVANCE EN DISCO AL COMPLETAR CADA LOTE
+            if repos_list:
+                pd.DataFrame(repos_list).to_parquet(
+                    repo_parquet_path, index=False, engine="pyarrow"
+                )
+            if workflows_list:
+                pd.DataFrame(workflows_list).to_parquet(
+                    wf_parquet_path, index=False, engine="pyarrow"
+                )
+            if bodies_list:
+                pd.DataFrame(bodies_list).to_parquet(
+                    body_parquet_path, index=False, engine="pyarrow"
+                )
+
+            # Guardar lista completa de procesados (para saber que no hay que reevaluarlos)
+            with open(processed_log_path, "w", encoding="utf-8") as f:
+                json.dump(list(processed_repo_names), f)
 
             processed_count = min(i + batch_size, len(pending_repos))
             print(
                 f" Progreso: {processed_count}/{len(pending_repos)} repositorios "
-                f"pendientes procesados (Avance guardado en Parquet)."
+                f"pendientes procesados (Avance guardado)."
             )
 
         return {
