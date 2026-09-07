@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "miner"
-version = "0.1.0"
-description = "Herramienta CLI para identificar repositorios que utilizan GitHub Agentic Workflows (GH-AW)."
+version = "0.2.0"
+description = "Herramienta CLI para procesar GitHub Agentic Workflows y generar datasets Parquet."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -14,6 +14,9 @@ dependencies = [
     "pandas>=2.0.0",
     "httpx>=0.24.0",
     "python-dotenv>=1.0.0",
+    "python-frontmatter>=1.0.0",
+    "pyyaml>=6.0",
+    "pyarrow>=12.0.0",
 ]
 
 [project.optional-dependencies]
