@@ -13,9 +13,14 @@ Un repositorio utiliza GH-AW si en el directorio `.github/workflows/` contiene a
 git clone [https://github.com/Riritastic/BabyMiner](https://github.com/Riritastic/BabyMiner)
 cd miner
 ```
+### 2. Instalación de ambiente .venv
+```bash
+python -m venv .venv
+```
 
 
-### 2. Utilización de miner
+
+### 3. Utilización de miner
 ```bash
 Comando: miner repositorios.csv --output repositorios_ghaw.csv
 Parámetros opcionales:
