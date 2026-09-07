@@ -16,6 +16,7 @@ cd miner
 ### 2. Instalación de ambiente .venv
 ```bash
 python -m venv .venv
+pip install -e .[dev]
 ```
 
 
