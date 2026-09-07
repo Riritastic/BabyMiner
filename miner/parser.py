@@ -3,20 +3,29 @@ from typing import Any, Dict, Tuple
 import frontmatter
 
 
+def sanitize_dict_keys(d: Any) -> Any:
+    """Asegura recursivamente que todas las claves de un diccionario sean de tipo str."""
+    if isinstance(d, dict):
+        return {str(k): sanitize_dict_keys(v) for k, v in d.items()}
+    elif isinstance(d, list):
+        return [sanitize_dict_keys(i) for i in d]
+    return d
+
+
 def parse_workflow_md(content: str) -> Tuple[dict, str]:
     """Parsea el contenido de un archivo Markdown con Frontmatter.
 
-    Garantiza que todas las claves del diccionario de metadatos sean cadenas de texto (str).
+    Garantiza que el diccionario de metadatos tenga claves 100% str.
     """
     post = frontmatter.loads(content)
 
-    # Convertir todas las claves del frontmatter a str para evitar 'keywords must be strings'
     clean_metadata: Dict[str, Any] = {}
     if isinstance(post.metadata, dict):
-        for k, v in post.metadata.items():
-            clean_metadata[str(k)] = v
+        sanitized = sanitize_dict_keys(post.metadata)
+        if isinstance(sanitized, dict):
+            clean_metadata = sanitized
 
-    body = post.content
+    body = post.content if isinstance(post.content, str) else str(post.content)
     return clean_metadata, body
 
 
@@ -34,7 +43,6 @@ def extract_metadata_fields(metadata: dict) -> dict:
         else None,
     }
 
-    # Convertir todo el metadata a JSON convirtiendo tipos no serializables si los hay
     try:
         known_fields["raw_frontmatter_json"] = json.dumps(
             metadata, ensure_ascii=False, default=str

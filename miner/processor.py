@@ -8,7 +8,11 @@ from miner.client import GitHubClient
 from miner.detector import is_gh_aw_workflow
 from miner.models import Repository, WorkflowBody, WorkflowMetadata
 from miner.parser import extract_metadata_fields, parse_workflow_md
-
+from miner.parser import (
+    extract_metadata_fields,
+    parse_workflow_md,
+    sanitize_dict_keys,
+)
 
 class DatasetProcessor:
 
@@ -24,12 +28,7 @@ class DatasetProcessor:
 
     def _process_single_repo(
         self, repo_name: str
-    ) -> Tuple[
-        str,
-        Optional[dict],
-        list[dict],
-        list[dict],
-    ]:
+    ) -> Tuple[str, Optional[dict], list[dict], list[dict]]:
         """Procesa un solo repositorio de forma aislada para ejecutar en un hilo."""
         try:
             items = self.client.get_workflow_files(repo_name)
@@ -39,7 +38,7 @@ class DatasetProcessor:
                 return repo_name, None, [], []
 
             repo_entity = Repository(full_name=repo_name)
-            repo_dict = repo_entity.model_dump()
+            repo_dict = sanitize_dict_keys(repo_entity.model_dump())
 
             workflows_dicts = []
             bodies_dicts = []
@@ -48,34 +47,47 @@ class DatasetProcessor:
             for md_file in md_files:
                 base_name = md_file[:-3]
                 if f"{base_name}.lock.yml" in filenames:
-                    content = self.client.get_file_content(
-                        repo_name, f".github/workflows/{md_file}"
-                    )
-                    if not content:
+                    try:
+                        content = self.client.get_file_content(
+                            repo_name, f".github/workflows/{md_file}"
+                        )
+                        if not content:
+                            continue
+
+                        metadata_dict, body_str = parse_workflow_md(content)
+                        extracted = extract_metadata_fields(metadata_dict)
+
+                        wf_entity = WorkflowMetadata(
+                            repository_id=repo_entity.id,
+                            filename=md_file,
+                            title=extracted["title"],
+                            description=extracted["description"],
+                            engine=extracted["engine"],
+                            raw_frontmatter_json=extracted[
+                                "raw_frontmatter_json"
+                            ],
+                        )
+                        workflows_dicts.append(
+                            sanitize_dict_keys(wf_entity.model_dump())
+                        )
+
+                        body_entity = WorkflowBody(
+                            workflow_id=wf_entity.id, body_markdown=body_str
+                        )
+                        bodies_dicts.append(
+                            sanitize_dict_keys(body_entity.model_dump())
+                        )
+
+                    except Exception as file_err:
+                        print(
+                            f"  [!] Omitiendo archivo {md_file} en {repo_name} por error de formato: {file_err}"
+                        )
                         continue
-
-                    metadata_dict, body_str = parse_workflow_md(content)
-                    extracted = extract_metadata_fields(metadata_dict)
-
-                    wf_entity = WorkflowMetadata(
-                        repository_id=repo_entity.id,
-                        filename=md_file,
-                        title=extracted["title"],
-                        description=extracted["description"],
-                        engine=extracted["engine"],
-                        raw_frontmatter_json=extracted["raw_frontmatter_json"],
-                    )
-                    workflows_dicts.append(wf_entity.model_dump())
-
-                    body_entity = WorkflowBody(
-                        workflow_id=wf_entity.id, body_markdown=body_str
-                    )
-                    bodies_dicts.append(body_entity.model_dump())
 
             return repo_name, repo_dict, workflows_dicts, bodies_dicts
 
         except Exception as e:
-            print(f" [!] Error procesando {repo_name}: {e}")
+            print(f" [!] Error procesando repositorio {repo_name}: {e}")
             return repo_name, None, [], []
 
     def process_and_export_parquet(
