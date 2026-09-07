@@ -1,54 +1,87 @@
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 import pandas as pd
 from miner.client import GitHubClient
 from miner.detector import is_gh_aw_workflow
+from miner.models import Repository, WorkflowBody, WorkflowMetadata
+from miner.parser import extract_metadata_fields, parse_workflow_md
 
 
-class RepositoryProcessor:
+class DatasetProcessor:
 
-    def __init__(
-        self,
-        client: GitHubClient,
-        repo_column: str = "name",
-        max_workers: int = 10,
-    ):
+    def __init__(self, client: GitHubClient, repo_column: str = "name"):
         self.client = client
         self.repo_column = repo_column
-        self.max_workers = max_workers
 
-    def _check_repo(self, repo_full_name: str) -> tuple[str, bool]:
-        items = self.client.get_workflow_files(repo_full_name)
-        filenames = [
-            item.name for item in items if item.type in ("file", "blob")
-        ]
-        uses_aw = is_gh_aw_workflow(filenames)
-        return repo_full_name, uses_aw
+    def process_and_export_parquet(
+        self, input_csv: str, output_dir: Path
+    ) -> dict:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        df_input = pd.read_csv(input_csv)
 
-    def process(self, input_path: str, output_path: str) -> int:
-        """Lee el CSV candidato, procesa los repositorios y guarda únicamente los que usan GH-AW."""
-        df = pd.read_csv(input_path)
+        repos_data = []
+        workflows_data = []
+        bodies_data = []
 
-        if self.repo_column not in df.columns:
-            raise KeyError(
-                f"La columna '{self.repo_column}' no existe en el CSV de entrada."
-            )
+        for repo_name in df_input[self.repo_column].dropna().unique():
+            items = self.client.get_workflow_files(repo_name)
+            filenames = [item.name for item in items if item.type == "file"]
 
-        repos = df[self.repo_column].dropna().unique().tolist()
-        results = {}
+            # Verificar criterio Tarea 2: existe al menos un par .md y .lock.yml
+            if not is_gh_aw_workflow(filenames):
+                continue
 
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(self._check_repo, repo) for repo in repos
-            ]
-            for future in as_completed(futures):
-                repo_name, uses_aw = future.result()
-                results[repo_name] = uses_aw
+            repo_entity = Repository(full_name=repo_name)
+            repos_data.append(repo_entity.model_dump())
 
-        # Agregar columna temporal de filtrado
-        df["_uses_gh_aw"] = df[self.repo_column].map(results).fillna(False)
+            # Identificar pares .md que tienen su .lock.yml
+            md_files = [f for f in filenames if f.endswith(".md")]
 
-        # Filtrar solo los que utilizan GitHub Agentic Workflows
-        df_filtered = df[df["_uses_gh_aw"] == True].drop(columns=["_uses_gh_aw"])
+            for md_file in md_files:
+                base_name = md_file[:-3]
+                if f"{base_name}.lock.yml" in filenames:
+                    content = self.client.get_file_content(
+                        repo_name, f".github/workflows/{md_file}"
+                    )
+                    if not content:
+                        continue
 
-        df_filtered.to_csv(output_path, index=False)
-        return len(df_filtered)
+                    metadata_dict, body_str = parse_workflow_md(content)
+                    extracted = extract_metadata_fields(metadata_dict)
+
+                    wf_entity = WorkflowMetadata(
+                        repository_id=repo_entity.id,
+                        filename=md_file,
+                        title=extracted["title"],
+                        description=extracted["description"],
+                        engine=extracted["engine"],
+                        raw_frontmatter_json=extracted["raw_frontmatter_json"],
+                    )
+                    workflows_data.append(wf_entity.model_dump())
+
+                    body_entity = WorkflowBody(
+                        workflow_id=wf_entity.id, body_markdown=body_str
+                    )
+                    bodies_data.append(body_entity.model_dump())
+
+        # Crear DataFrames e Exportar a Parquet con PyArrow
+        df_repos = pd.DataFrame(repos_data)
+        df_workflows = pd.DataFrame(workflows_data)
+        df_bodies = pd.DataFrame(bodies_data)
+
+        df_repos.to_parquet(
+            output_dir / "repositories.parquet", index=False, engine="pyarrow"
+        )
+        df_workflows.to_parquet(
+            output_dir / "workflows.parquet", index=False, engine="pyarrow"
+        )
+        df_bodies.to_parquet(
+            output_dir / "workflow_bodies.parquet",
+            index=False,
+            engine="pyarrow",
+        )
+
+        return {
+            "repositories": len(df_repos),
+            "workflows": len(df_workflows),
+            "bodies": len(df_bodies),
+        }

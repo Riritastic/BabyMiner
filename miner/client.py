@@ -74,3 +74,20 @@ class GitHubClient:
 
                 except httpx.HTTPError:
                     return []
+    def get_file_content(self, repo_full_name: str, path: str) -> Optional[str]:
+        """Obtiene el texto plano de un archivo en el repositorio."""
+        url = f"https://raw.githubusercontent.com/{repo_full_name}/main/{path}"
+        
+        with httpx.Client(timeout=10.0) as client:
+            headers = self._get_headers()
+            response = client.get(url, headers=headers)
+            
+            # Si 'main' falla, intentamos con 'master'
+            if response.status_code == 404:
+                url_master = f"https://raw.githubusercontent.com/{repo_full_name}/master/{path}"
+                response = client.get(url_master, headers=headers)
+                
+            if response.status_code == 200:
+                return response.text
+            return None
+                

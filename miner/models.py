@@ -1,15 +1,25 @@
+import uuid
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
 
-class RepositoryItem(BaseModel):
-    """Representa un archivo o directorio dentro del repositorio."""
-
-    name: str
-    type: str = Field(..., description="Tipo de ítem: 'file' o 'dir'")
-
-
-class RepositoryInfo(BaseModel):
-    """Representa la información base de un repositorio."""
-
+class Repository(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
-    uses_gh_aw: bool = False
+
+
+class WorkflowMetadata(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    repository_id: str
+    filename: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    engine: Optional[str] = None
+    raw_frontmatter_json: Optional[str] = (
+        None  # Resguardo de campos dinámicos en JSON
+    )
+
+
+class WorkflowBody(BaseModel):
+    workflow_id: str
+    body_markdown: str
