@@ -7,5 +7,5 @@
 Ejecuta el siguiente comando especificando el archivo CSV de candidatos y el directorio donde se crearán las tablas en formato Apache Parquet:
 
 ```bash
-miner input_repos.csv --output-dir ./dist_parquet
+miner -o outputrepos.ghaw.csv inputrepos.csv
 ```
