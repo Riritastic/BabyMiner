@@ -7,3 +7,5 @@ api.upload_folder(
     repo_id="tu-usuario/gh-agentic-workflows-dataset",
     repo_type="dataset",
 )
+
+python upload_hf.py --dataset-dir eda/data/processed
