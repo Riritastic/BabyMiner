@@ -130,3 +130,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+#Alias para compatibilidad con el entry_point instalado
+app = main
