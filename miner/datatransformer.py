@@ -99,3 +99,4 @@ if __name__ == "__main__":
         repo_column=args.repo_column,
         output_file=args.output_file,
     )
+    #python -m miner.datatransformer --input-csv results.csv --parquet-dir repositories.ghaw.csv
