@@ -44,3 +44,8 @@ Los notebooks generarán automáticamente los datos procesados en `eda/data/proc
     ```bash
     jupyter lab
     ```
+
+
+
+
+    tablas body + md + yml + Repo (nombre, dueño, last commit,) 
