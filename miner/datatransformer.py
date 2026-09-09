@@ -3,100 +3,64 @@ from pathlib import Path
 import pandas as pd
 
 
-def transform_to_ghaw_only_parquet(
-    input_csv: str = "results.csv",
+def parquet_to_csv(
     parquet_dir: str = "repositories.ghaw.csv",
-    repo_column: str = "name",
-    output_file: str = "ghaw_only_repositories.parquet",
+    parquet_file: str = "repositories.parquet",
+    output_csv: str = "repositories_ghaw_positives.csv",
 ) -> Path:
-    """Filtra el CSV original para conservar ÚNICAMENTE los repositorios que utilizan GH-AW
-
-    y lo exporta a formato Parquet.
-    """
+    """Lee el Parquet de casos positivos de GH-AW y lo exporta como un archivo CSV."""
     p_dir = Path(parquet_dir)
-    repo_parquet_path = p_dir / "repositories.parquet"
+    parquet_path = p_dir / parquet_file
 
-    if not repo_parquet_path.exists():
+    if not parquet_path.exists():
         raise FileNotFoundError(
-            f"❌ No se encontró el Parquet de repositorios en: {repo_parquet_path}"
+            f"❌ No se encontró el archivo Parquet en: {parquet_path}"
         )
 
-    # 1. Cargar repositorios positivos identificados por Miner
-    print(f"📖 Leyendo repositorios confirmados desde {repo_parquet_path}...")
-    df_positives = pd.read_parquet(repo_parquet_path)
+    print(f"📖 Leyendo dataset de casos positivos desde: {parquet_path}...")
+    df_positives = pd.read_parquet(parquet_path)
 
-    if "full_name" not in df_positives.columns:
-        raise KeyError(
-            "La columna 'full_name' no está presente en repositories.parquet."
-        )
+    destination_path = p_dir / output_csv
+    print(f"💾 Convirtiendo y guardando en CSV: {destination_path}...")
+    df_positives.to_csv(destination_path, index=False)
 
-    positive_repo_names = set(df_positives["full_name"].dropna().unique())
-
-    # 2. Cargar CSV original
-    print(f"📖 Leyendo CSV original desde {input_csv}...")
-    df_original = pd.read_csv(input_csv)
-
-    if repo_column not in df_original.columns:
-        raise KeyError(
-            f"La columna '{repo_column}' no existe en el archivo {input_csv}."
-        )
-
-    # 3. Filtrar para mantener SOLO los que están en la lista de positivos
-    df_ghaw_only = df_original[
-        df_original[repo_column].isin(positive_repo_names)
-    ].copy()
-
-    # 4. Exportar el resultado a Parquet
-    destination_path = p_dir / output_file
-    df_ghaw_only.to_parquet(destination_path, index=False, engine="pyarrow")
-
-    print("\n✅ Transformación completada exitosamente.")
+    print("\n✅ Conversión completada exitosamente.")
     print(
-        f"  - Total de repositorios analizados en CSV original: {len(df_original):,}"
+        f"  - Repositorios positivos exportados: {len(df_positives):,} filas"
     )
-    print(
-        f"  - Repositorios filtrados (SÓLO GH-AW): {len(df_ghaw_only):,} (100% positivos)"
-    )
-    print(f"  - Archivo Parquet generado en: {destination_path}")
+    print(f"  - Archivo generado: {destination_path}")
 
     return destination_path
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Genera un Parquet únicamente con repositorios que utilizan GH-AW."
-    )
-    parser.add_argument(
-        "--input-csv",
-        type=str,
-        default="results.csv",
-        help="Ruta al CSV original de entrada.",
+        description="Convierte el Parquet de casos positivos de GH-AW a formato CSV."
     )
     parser.add_argument(
         "--parquet-dir",
         type=str,
         default="repositories.ghaw.csv",
-        help="Directorio donde se encuentra repositories.parquet.",
+        help="Directorio donde se encuentra el Parquet.",
     )
     parser.add_argument(
-        "--repo-column",
+        "--parquet-file",
         type=str,
-        default="name",
-        help="Columna del CSV con el owner/repo.",
+        default="repositories.parquet",
+        help="Nombre del archivo Parquet de origen.",
     )
     parser.add_argument(
-        "--output-file",
+        "--output-csv",
         type=str,
-        default="ghaw_only_repositories.parquet",
-        help="Nombre del archivo Parquet de salida.",
+        default="repositories_ghaw_positives.csv",
+        help="Nombre del CSV de salida.",
     )
 
     args = parser.parse_args()
 
-    transform_to_ghaw_only_parquet(
-        input_csv=args.input_csv,
+    parquet_to_csv(
         parquet_dir=args.parquet_dir,
-        repo_column=args.repo_column,
-        output_file=args.output_file,
+        parquet_file=args.parquet_file,
+        output_csv=args.output_csv,
     )
-    #python -m miner.datatransformer --input-csv results.csv --parquet-dir repositories.ghaw.csv
+    #python -m miner.datatransformer
