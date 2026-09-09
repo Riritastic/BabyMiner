@@ -106,3 +106,5 @@ if __name__ == "__main__":
         repo_column=args.repo_column,
         output_file=args.output_file,
     )
+
+    #python -m miner.datamixer --input-csv results.csv --output-dir repositories.ghaw.csv --repo-column name --output-file repos_classified.csv
