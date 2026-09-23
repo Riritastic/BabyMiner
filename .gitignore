@@ -11,6 +11,7 @@
 *.sln.docstates
 *.env
 *.csv
+*.parquet
 
 ## .venv environment files and pycache
 .venv/
