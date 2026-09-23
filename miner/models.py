@@ -1,36 +1,59 @@
-import uuid
+from dataclasses import dataclass
 from typing import Optional
-from pydantic import BaseModel, Field
 
 
-# --- Modelo utilizado por el cliente de GitHub (Tarea 2 / Tarea 3) ---
-class RepositoryItem(BaseModel):
-    """Representa un archivo o directorio dentro del repositorio."""
-
+@dataclass
+class RepositoryData:
+    id: str
+    owner: str
     name: str
-    type: str = Field(
-        default="file", description="Tipo de ítem: 'file' o 'dir'"
-    )
-
-
-# --- Modelos del Dataset / Parquet (Tarea 3) ---
-class Repository(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
+    stars: int
+    forks: int
+    open_issues: int
+    main_language: Optional[str]
+    is_archived: bool
+    created_at: str
+    updated_at: str
+    last_commit_at: Optional[str]
+    default_branch: str
 
 
-class WorkflowMetadata(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+@dataclass
+class WorkflowData:
+    id: str
     repository_id: str
-    filename: str
-    title: Optional[str] = None
-    description: Optional[str] = None
-    engine: Optional[str] = None
-    raw_frontmatter_json: Optional[str] = (
-        None  # Resguardo de campos dinámicos en JSON
-    )
+    md_path: str
+    md_filename: str
+    title: Optional[str]
+    description: Optional[str]
+    engine: Optional[str]
+    is_gh_aw: bool = True
 
 
-class WorkflowBody(BaseModel):
+@dataclass
+class WorkflowMarkdownData:
+    """Artefacto PRIMARIO (Entrada/Definición): El archivo .md ejecutable."""
+
+    workflow_id: str
+    raw_markdown: str
+    frontmatter_yaml: Optional[str]
+
+
+@dataclass
+class WorkflowBodyData:
+    """Cuerpo de instrucciones del prompt extraído del Markdown primario."""
+
     workflow_id: str
     body_markdown: str
+    word_count: int
+
+
+@dataclass
+class WorkflowYmlData:
+    """Artefacto SECUNDARIO (Salida/Generado 1:1): El YAML compilado resultante."""
+
+    workflow_id: str
+    generated_yml_path: Optional[str]
+    raw_yml_content: Optional[str]
+    parsed_yaml_json: Optional[str]
