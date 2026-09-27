@@ -122,11 +122,19 @@ def main():
         output_dir=Path(args.output_dir)
     )
 
-    print("\n Process completado exitosamente.")
-    print(f"  - Repositorios GH-AW encontrados: {results['repositories']}")
-    print(f"  - Metadatos de Workflows: {results['workflows']}")
-    print(f"  - Cuerpos de Workflows: {results['bodies']}")
-
+    # EN LUGAR DE ACCEDER A LLAVES ANTIGUAS COMO results['bodies']:
+    print(" Process completado exitosamente.")
+    print(
+        f"  - Repositorios GH-AW encontrados: {results.get('repositories', 0)}"
+    )
+    print(f"  - Metadatos de Workflows: {results.get('workflows', 0)}")
+    print(
+        f"  - Contenidos Markdown: {results.get('workflow_markdown', 0)}"
+    )  # Nueva tabla
+    print(
+        f"  - Cuerpos de Workflows: {results.get('workflow_bodies', 0)}"
+    )  # Clave actualizada
+    print(f"  - Compilados YML: {results.get('workflow_yml', 0)}")  # Nueva tabla
 
 if __name__ == "__main__":
     main()
