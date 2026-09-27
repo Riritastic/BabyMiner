@@ -18,5 +18,5 @@ GH_TOKENS="ghp_token1,ghp_token2,ghp_token3" #ejemplo
 
 
 ```bash
-python -m miner.cli --input data/candidates.csv --output data/raw/ --batch-size 50 --workers 15
+python -m miner.cli --input-csv data/candidates.csv --output-dir data/raw --workers 15
 ```
