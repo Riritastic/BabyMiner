@@ -20,8 +20,10 @@ __pycache__/
 *.pyc
 
 
-# Archivos de registro y reanudación de progreso
-processed_repos.json
+# Ignorar el log de progreso del minador en la carpeta de datos crudos
+data/raw/processed_repos.json
+
+# Regla general por si cambia la ubicación de salida
 **/processed_repos.json
 
 # Datos crudos y procesados (si no deseas subir los Parquet al repo)
