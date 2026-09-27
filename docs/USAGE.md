@@ -20,9 +20,13 @@ GH_TOKENS="ghp_token1,ghp_token2,ghp_token3" #ejemplo
 Remove-Item data/raw/processed_repos.json -ErrorAction SilentlyContinue
 ```
 
+### 1.2 Limpiar carpeta raw del processed repos (Opcional)
+```bash
+git rm --cached data/raw/processed_repos.json
+git add .gitignore
+git commit -m "chore: dejar de rastrear processed_repos.json e ignorarlo"
+```
 ### 2. Comandos de Ejecución
-
-
 ```bash
 python -m miner.cli --input-csv data/candidates.csv --output-dir data/raw --workers 15
 ```
