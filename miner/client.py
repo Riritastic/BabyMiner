@@ -44,12 +44,10 @@ class GitHubClient:
     ) -> Dict[str, Dict[str, Any]]:
         """Consulta en UNA sola petición GraphQL las métricas extendidas del repositorio
 
-        y el árbol de archivos en `.github/` para extraer los Markdown primarios
-        y sus YAMLs secundarios generados.
+        y los archivos dentro de .github/workflows/.
         """
         token = self.token_pool.get_token()
 
-        # Construcción de la consulta GraphQL extendida por repositorio
         query_parts = []
         for idx, repo_name in enumerate(repo_full_names):
             parts = repo_name.split("/")
@@ -87,20 +85,6 @@ class GitHubClient:
                     issues(states: OPEN) {{
                         totalCount
                     }}
-                    github_dir: object(expression: "HEAD:.github") {{
-                        ... on Tree {{
-                            entries {{
-                                name
-                                path
-                                type
-                                object {{
-                                    ... on Blob {{
-                                        text
-                                    }}
-                                }}
-                            }}
-                        }}
-                    }}
                     workflows_dir: object(expression: "HEAD:.github/workflows") {{
                         ... on Tree {{
                             entries {{
@@ -118,6 +102,9 @@ class GitHubClient:
                 }}
             """
             )
+
+        if not query_parts:
+            return {}
 
         graphql_query = "query {\n" + "\n".join(query_parts) + "\n}"
 
@@ -143,7 +130,7 @@ class GitHubClient:
                             if not full_name:
                                 continue
 
-                            # 1. Extraer métricas extendidas del Repositorio
+                            # 1. Extraer métricas del Repositorio
                             default_branch = ""
                             last_commit_at = None
                             branch_ref = content.get("defaultBranchRef")
@@ -173,26 +160,32 @@ class GitHubClient:
                                 "default_branch": default_branch,
                             }
 
-                            # 2. Recolectar archivos Markdown (Primarios) y YAML (Secundarios)
+                            # 2. Recolectar únicamente Blobs (archivos) de .github/workflows/
                             files_map = {}
+                            tree_obj = content.get("workflows_dir")
+                            if tree_obj and "entries" in tree_obj:
+                                for entry in tree_obj["entries"]:
+                                    # Asegurarnos de procesar solo archivos tipo Blob
+                                    if entry.get("type") == "blob":
+                                        file_name = entry.get("name")
+                                        file_path = entry.get(
+                                            "path"
+                                        )  # Ruta completa .github/workflows/file.md
+                                        blob_obj = entry.get("object") or {}
+                                        text_content = blob_obj.get("text", "")
 
-                            for dir_key in ["github_dir", "workflows_dir"]:
-                                tree_obj = content.get(dir_key)
-                                if tree_obj and "entries" in tree_obj:
-                                    for entry in tree_obj["entries"]:
-                                        if entry.get("type") == "blob":
-                                            file_name = entry.get("name")
-                                            file_path = entry.get("path")
-                                            blob_obj = entry.get(
-                                                "object"
-                                            ) or {}
-                                            text_content = blob_obj.get(
-                                                "text", ""
-                                            )
-                                            files_map[file_name] = {
-                                                "path": file_path,
-                                                "content": text_content,
-                                            }
+                                        # Guardamos tanto por path como por name para que el detector nunca falle
+                                        file_data = {
+                                            "path": file_path,
+                                            "name": file_name,
+                                            "content": text_content,
+                                        }
+
+                                        # Guardar con la ruta relativa completa
+                                        files_map[file_path] = file_data
+                                        # Guardar también por nombre simple de respaldo
+                                        if file_name not in files_map:
+                                            files_map[file_name] = file_data
 
                             results[full_name] = {
                                 "repository": repo_info,
