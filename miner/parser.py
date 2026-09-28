@@ -78,3 +78,7 @@ def extract_metadata_fields(metadata: dict) -> Dict[str, Any]:
 
     # Retornamos el diccionario garantizando que las llaves sean str puros para **kwargs
     return stringify_keys(known_fields)
+
+
+# Alias para mantener compatibilidad con miner/processor.py
+sanitize_dict_keys = stringify_keys
